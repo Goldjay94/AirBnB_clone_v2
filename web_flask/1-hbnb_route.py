@@ -1,46 +1,20 @@
 #!/usr/bin/python3
-"""
-starts a Flask web application
-"""
-
+"""This script starts a Flask web application"""
 from flask import Flask
 app = Flask(__name__)
 
 
-@app.route('/', strict_slashes=False)
-def index():
-    """returns Hello HBNB!"""
-    return 'Hello HBNB!'
-
-
-@app.route('/hbnb', strict_slashes=False)
-def hbnb():
-    """returns HBNB"""
-    return 'HBNB'
-
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port='5000')
-=======
-A simple flask server running on 0.0.0.0:5000
-"""
-from flask import Flask
-
-app = Flask(__name__)
-app.url_map.strict_slashes = False
-
-
-@app.route('/')
-def display_root():
-    """Prints 'Hello HBNB!' to display"""
+@app.route("/", strict_slashes=False)
+def hello():
+    """ This function returns a string"""
     return "Hello HBNB!"
 
 
-@app.route('/hbnb')
-def display_hbnb():
-    """Prints 'HBNB' to display"""
+@app.route("/hbnb", strict_slashes=False)
+def hbnb():
+    """ This function returns a string"""
     return "HBNB"
 
 
-if __name__ == "__main__":
-    app.run(host='0.0.0.0', port='5000')
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
