@@ -1,18 +1,10 @@
 #!/usr/bin/python3
-"""Database storage engine using SQLAlchemy with a mysql+mysqldb database
-connection.
-"""
-
-import os
-from models.base_model import Base
-from models.amenity import Amenity
-from models.city import City
-from models.place import Place
-from models.state import State
-from models.review import Review
-from models.user import User
+"""This module defines a class to manage db storage for hbnb clone"""
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, scoped_session
+from ..base_model import Base, BaseModel
+from os import getenv
+from sqlalchemy import create_engine, inspect
 
 HBNB_MYSQL_USER = getenv('HBNB_MYSQL_USER')
 HBNB_MYSQL_PWD = getenv('HBNB_MYSQL_PWD')
@@ -23,83 +15,72 @@ HBNB_ENV = 'dev'
 
 
 class DBStorage:
-    """Database Storage"""
+    """This class manages storage of hbnb . in database"""
     __engine = None
     __session = None
 
     def __init__(self):
-        """Initializes the object"""
-        user = os.getenv('HBNB_MYSQL_USER')
-        passwd = os.getenv('HBNB_MYSQL_PWD')
-        host = os.getenv('HBNB_MYSQL_HOST')
-        database = os.getenv('HBNB_MYSQL_DB')
+        """initializes the database"""
         self.__engine = create_engine('mysql+mysqldb://{}:{}@{}/{}'
-                                      .format(user,
-                                              passwd,
-                                              host,
-                                              database), pool_pre_ping=True)
-        if os.getenv('HBNB_ENV') == 'test':
+                                      .format(HBNB_MYSQL_USER, HBNB_MYSQL_PWD,
+                                              HBNB_MYSQL_HOST, HBNB_MYSQL_DB),
+                                      pool_pre_ping=True)
+        if HBNB_ENV == 'test':
             Base.metadata.drop_all(self.__engine)
 
     def all(self, cls=None):
-        """returns a dictionary of all the objects present"""
-        if not self.__session:
-            self.reload()
-        objects = {}
-        if type(cls) == str:
-            cls = name2class.get(cls, None)
-        if cls:
-            for obj in self.__session.query(cls):
-                objects[obj.__class__.__name__ + '.' + obj.id] = obj
-        else:
-            for cls in name2class.values():
-                for obj in self.__session.query(cls):
-                    objects[obj.__class__.__name__ + '.' + obj.id] = obj
-        return objects
+        """Returns a dictionary of all instances of a given class"""
+        from ..user import User
+        from ..state import State
+        from ..city import City
+        from ..place import Place
+        from ..review import Review
+        from ..amenity import Amenity
 
-    def reload(self):
-        """reloads objects from the database"""
-        session_factory = sessionmaker(bind=self.__engine,
-                                       expire_on_commit=False)
-        Base.metadata.create_all(self.__engine)
-        self.__session = scoped_session(session_factory)
+        result_dict = {}
+        for model in [User, State, City, Place, Amenity, Review]:
+            if cls is not None and model != cls:
+                continue
+            query_results = self.__session.query(model).all()
+            for obj in query_results:
+                key = "{}.{}".format(type(obj).__name__, obj.id)
+                result_dict[key] = obj
+        return result_dict
 
     def new(self, obj):
-        """creates a new object"""
-        self.__session.add(obj)
+        """Adds new object to storage dictionary"""
+        if obj:
+            try:
+                self.__session.add(obj)
+                self.__session.flush()
+                self.__session.refresh(obj)
+            except Exception:
+                self.__session.rollback()
 
     def save(self):
-        """saves the current session"""
+        """Saves storage dictionary to file"""
         self.__session.commit()
 
     def delete(self, obj=None):
-        """deletes an object"""
-        if not self.__session:
-            self.reload()
-        if obj:
+        """delete obj from __objects if it’s inside"""
+        if obj is not None:
             self.__session.delete(obj)
 
+    def reload(self):
+        """Loads storage dictionary from file"""
+        from ..user import User
+        from ..state import State
+        from ..city import City
+        from ..place import Place
+        from ..review import Review
+        from ..amenity import Amenity
+
+        Base.metadata.create_all(self.__engine)
+        session_factory = sessionmaker(
+            bind=self.__engine, expire_on_commit=False)
+        self.__session = scoped_session(session_factory)()
+
     def close(self):
-        """Dispose of current session if active"""
-        self.__session.remove()
-
-    def get(self, cls, id):
-        """Retrieve an object"""
-        if cls is not None and type(cls) is str and id is not None and\
-           type(id) is str and cls in name2class:
-            cls = name2class[cls]
-            result = self.__session.query(cls).filter(cls.id == id).first()
-            return result
-        else:
-            return None
-
-    def count(self, cls=None):
-        """Count number of objects in storage"""
-        total = 0
-        if type(cls) == str and cls in name2class:
-            cls = name2class[cls]
-            total = self.__session.query(cls).count()
-        elif cls is None:
-            for cls in name2class.values():
-                total += self.__session.query(cls).count()
-        return total
+        """calls remove() method on the private
+        session attribute (self.__session)"""
+        self.__session.close()
